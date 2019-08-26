@@ -2,5 +2,6 @@
 
 ### Osa 3
 
-https://fso2019-puhelinluettelo.herokuapp.com/api/persons
+https://fso2019-puhelinluettelo.herokuapp.com
+
 https://fullstackopen.com/osa3
