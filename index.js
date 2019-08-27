@@ -24,7 +24,7 @@ app.use(
 	})
 );
 
-morgan.token("postContent", function(req, res) {
+morgan.token("postContent", function(req) {
 	return JSON.stringify(req.body);
 });
 
@@ -107,7 +107,7 @@ const unknownEndpoint = (req, res) => {
 app.use(unknownEndpoint);
 
 const errorHandler = (error, req, res, next) => {
-	if (error.name === "CastError" && error.kind == "ObjectId") {
+	if (error.name === "CastError" && error.kind === "ObjectId") {
 		return res.status(400).send({ error: "Malformed ID" });
 	} else if (error.name === "ValidationError") {
 		return res.status(400).json({ error: error.message });
