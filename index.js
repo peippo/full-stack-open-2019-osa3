@@ -28,18 +28,6 @@ morgan.token("postContent", function(req, res) {
 	return JSON.stringify(req.body);
 });
 
-const errorHandler = (error, req, res, next) => {
-	console.error(error.message);
-
-	if (error.name === "CastError" && error.kind == "ObjectId") {
-		return res.status(400).send({ error: "Malformed ID" });
-	}
-
-	next(error);
-};
-
-app.use(errorHandler);
-
 app.get("/api/persons", (req, res) => {
 	Person.find({}).then(people => {
 		res.json(people.map(person => person.toJSON()));
@@ -81,7 +69,7 @@ app.get("/info", (req, res) => {
 	});
 });
 
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
 	const body = req.body;
 
 	if (!body || !body.name || !body.number) {
@@ -95,9 +83,13 @@ app.post("/api/persons", (req, res) => {
 		number: body.number
 	});
 
-	person.save().then(savedPerson => {
-		res.json(savedPerson.toJSON());
-	});
+	person
+		.save()
+		.then(savedPerson => savedPerson.toJSON())
+		.then(savedAndFormattedPerson => {
+			res.json(savedAndFormattedPerson);
+		})
+		.catch(error => next(error));
 });
 
 app.delete("/api/persons/:id", (req, res, next) => {
@@ -113,6 +105,18 @@ const unknownEndpoint = (req, res) => {
 };
 
 app.use(unknownEndpoint);
+
+const errorHandler = (error, req, res, next) => {
+	if (error.name === "CastError" && error.kind == "ObjectId") {
+		return res.status(400).send({ error: "Malformed ID" });
+	} else if (error.name === "ValidationError") {
+		return res.status(400).json({ error: error.message });
+	}
+
+	next(error);
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
