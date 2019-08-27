@@ -28,32 +28,17 @@ morgan.token("postContent", function(req, res) {
 	return JSON.stringify(req.body);
 });
 
-const generateId = () => {
-	return Math.floor(Math.random() * 10000000);
+const errorHandler = (error, req, res, next) => {
+	console.error(error.message);
+
+	if (error.name === "CastError" && error.kind == "ObjectId") {
+		return res.status(400).send({ error: "Malformed ID" });
+	}
+
+	next(error);
 };
 
-let persons = [
-	{
-		name: "Arto Hellas",
-		number: "040-123456",
-		id: 1
-	},
-	{
-		name: "Ada Lovelace",
-		number: "39-44-5323523",
-		id: 2
-	},
-	{
-		name: "Dan Abramov",
-		number: "12-43-234345",
-		id: 3
-	},
-	{
-		name: "Mary Poppendieck",
-		number: "39-23-6423122",
-		id: 4
-	}
-];
+app.use(errorHandler);
 
 app.get("/api/persons", (req, res) => {
 	Person.find({}).then(people => {
@@ -61,18 +46,39 @@ app.get("/api/persons", (req, res) => {
 	});
 });
 
-app.get("/api/persons/:id", (req, res) => {
-	Person.findById(req.params.id).then(person => {
-		res.json(person.toJSON());
-	});
+app.get("/api/persons/:id", (req, res, next) => {
+	Person.findById(req.params.id)
+		.then(person => {
+			if (person) {
+				res.json(person.toJSON());
+			} else {
+				res.status(404).end();
+			}
+		})
+		.catch(error => next(error));
+});
+
+app.put("/api/persons/:id", (req, res, next) => {
+	const body = req.body;
+
+	const person = {
+		name: body.name,
+		number: body.number
+	};
+
+	Person.findByIdAndUpdate(req.params.id, person, { new: true })
+		.then(updatedPerson => {
+			res.json(updatedPerson.toJSON());
+		})
+		.catch(error => next(error));
 });
 
 app.get("/info", (req, res) => {
-	res.send(
-		`<p>Phonebook has info for ${
-			persons.length
-		} people</p><p>${new Date()}</p>`
-	);
+	Person.countDocuments().then(documentCount => {
+		res.send(
+			`<p>Phonebook has info for ${documentCount} people</p><p>${new Date()}</p>`
+		);
+	});
 });
 
 app.post("/api/persons", (req, res) => {
@@ -94,11 +100,19 @@ app.post("/api/persons", (req, res) => {
 	});
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-	const id = Number(req.params.id);
-	persons = persons.filter(person => person.id !== id);
-	res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+	Person.findByIdAndRemove(req.params.id)
+		.then(() => {
+			res.status(204).end();
+		})
+		.catch(error => next(error));
 });
+
+const unknownEndpoint = (req, res) => {
+	res.status(404).send({ error: "Unknown endpoint" });
+};
+
+app.use(unknownEndpoint);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
